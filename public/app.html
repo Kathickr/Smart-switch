@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="rgb(26,26,46)"/>
+<title>OSMIUM Smart Switch</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: Arial, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: #16213e;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #0f3460;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 10px; }
+
+  .app-icon {
+    width: 36px; height: 36px;
+    background: #2ecc71;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .app-name {
+    font-size: 18px;
+    font-weight: bold;
+    color: white;
+    letter-spacing: 1px;
+  }
+
+  .app-sub {
+    font-size: 11px;
+    color: #888;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .refresh-btn {
+    background: none;
+    border: 1px solid #0f3460;
+    color: #888;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  /* ── Main scroll area ── */
+  .main { flex: 1; overflow-y: auto; padding: 20px 16px; }
+
+  /* ── Device card ── */
+  .device-card {
+    background: #16213e;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1px solid #0f3460;
+  }
+
+  .device-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+
+  .device-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    margin-bottom: 4px;
+  }
+
+  .device-id {
+    font-size: 11px;
+    color: #555;
+    font-family: monospace;
+  }
+
+  .status-badges { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-online  { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+  .badge-offline { background: rgba(231,76,60,0.15);  color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+  .badge-on      { background: rgba(241,196,15,0.15); color: #f1c40f; border: 1px solid rgba(241,196,15,0.3); }
+  .badge-off     { background: rgba(100,100,100,0.15);color: #666;    border: 1px solid rgba(100,100,100,0.3); }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .dot-online  { background: #2ecc71; animation: blink 2s infinite; }
+  .dot-offline { background: #e74c3c; }
+  .dot-on      { background: #f1c40f; }
+  .dot-off     { background: #555; }
+
+  @keyframes blink {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.3; }
+  }
+
+  .last-seen {
+    font-size: 11px;
+    color: #555;
+    margin-bottom: 16px;
+  }
+
+  /* ── Big LED toggle button ── */
+  .led-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .led-btn {
+    padding: 18px;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .led-btn:active { transform: scale(0.95); }
+
+  .btn-on {
+    background: #2ecc71;
+    color: white;
+  }
+
+  .btn-off {
+    background: #16213e;
+    color: #e74c3c;
+    border: 1px solid #e74c3c;
+  }
+
+  .btn-icon { font-size: 24px; }
+
+  .no-device {
+    text-align: center;
+    padding: 40px 20px;
+    color: #555;
+  }
+
+  .no-device-icon { font-size: 48px; margin-bottom: 12px; }
+  .no-device p { font-size: 14px; line-height: 1.6; }
+
+  /* ── Section title ── */
+  .section-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+    margin-top: 4px;
+  }
+
+  /* ── Schedule card ── */
+  .schedule-card {
+    background: #16213e;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    border: 1px solid #0f3460;
+  }
+
+  .sched-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+
+  .form-group label {
+    font-size: 12px;
+    color: #888;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .form-group input,
+  .form-group select {
+    background: #1a1a2e;
+    border: 1px solid #0f3460;
+    color: #eee;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 15px;
+    outline: none;
+    width: 100%;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus { border-color: #2ecc71; }
+
+  .form-group select option { background: #16213e; }
+
+  .add-btn {
+    background: #2ecc71;
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  .add-btn:active { transform: scale(0.98); }
+
+  /* ── Schedule list ── */
+  .sched-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    border: 1px solid #0f3460;
+    gap: 10px;
+  }
+
+  .sched-time {
+    font-size: 22px;
+    font-weight: bold;
+    color: white;
+    min-width: 60px;
+  }
+
+  .sched-info { flex: 1; }
+
+  .sched-label {
+    font-size: 14px;
+    color: #ccc;
+    margin-bottom: 3px;
+  }
+
+  .sched-cmd {
+    font-size: 11px;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 10px;
+    display: inline-block;
+  }
+
+  .sched-cmd.on  { background: rgba(46,204,113,0.15); color: #2ecc71; }
+  .sched-cmd.off { background: rgba(231,76,60,0.15);  color: #e74c3c; }
+
+  .sched-actions { display: flex; gap: 8px; }
+
+  .toggle-btn {
+    background: none;
+    border: 1px solid #0f3460;
+    color: #888;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  .toggle-btn.active { border-color: #2ecc71; color: #2ecc71; }
+
+  .del-btn {
+    background: none;
+    border: 1px solid rgba(231,76,60,0.3);
+    color: #e74c3c;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .empty-sched {
+    text-align: center;
+    color: #555;
+    font-size: 13px;
+    padding: 20px;
+  }
+
+  /* ── Toast notification ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #2ecc71;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 25px;
+    font-size: 14px;
+    font-weight: bold;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 999;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(46,204,113,0.4);
+  }
+
+  .toast.error { background: #e74c3c; box-shadow: 0 4px 20px rgba(231,76,60,0.4); }
+  .toast.show  { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Add to home screen banner ── */
+  .install-banner {
+    background: #0f3460;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #aaa;
+  }
+
+  .install-banner span { flex: 1; }
+  .install-close {
+    background: none;
+    border: none;
+    color: #555;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 4px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Install banner -->
+<div class="install-banner" id="installBanner">
+  <span>📱 Add to Home Screen for app experience</span>
+  <button class="install-close" onclick="document.getElementById('installBanner').remove()">✕</button>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="app-icon">⚡</div>
+    <div>
+      <div class="app-name">OSMIUM</div>
+      <div class="app-sub">Smart Switch</div>
+    </div>
+  </div>
+  <button class="refresh-btn" onclick="refresh()" title="Refresh">↻</button>
+</div>
+
+<!-- Main content -->
+<div class="main">
+
+  <!-- Devices -->
+  <div class="section-title">My Devices</div>
+  <div id="devices-container">
+    <div class="no-device">
+      <div class="no-device-icon">📡</div>
+      <p>Looking for devices...<br>Make sure your ESP32 is powered on and connected to WiFi.</p>
+    </div>
+  </div>
+
+  <!-- Schedules -->
+  <div class="section-title">Schedules</div>
+  <div class="schedule-card">
+
+    <!-- Add schedule form -->
+    <div class="sched-form">
+      <div class="form-group">
+        <label>Schedule Name</label>
+        <input type="text" id="sched-label" placeholder="e.g. Morning ON"/>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Time</label>
+          <input type="time" id="sched-time"/>
+        </div>
+        <div class="form-group">
+          <label>Action</label>
+          <select id="sched-cmd">
+            <option value="on">Turn ON</option>
+            <option value="off">Turn OFF</option>
+          </select>
+        </div>
+      </div>
+      <button class="add-btn" onclick="addSchedule()">+ Add Schedule</button>
+    </div>
+
+    <!-- Schedule list -->
+    <div id="schedules-list">
+      <div class="empty-sched">No schedules yet</div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function showToast(msg, isError) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast' + (isError ? ' error' : '') + ' show';
+    setTimeout(() => t.className = 'toast' + (isError ? ' error' : ''), 2500);
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function timeSince(iso) {
+    if (!iso) return 'never seen';
+    const sec = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (sec < 5)  return 'just now';
+    if (sec < 60) return sec + 's ago';
+    return Math.floor(sec / 60) + 'm ago';
+  }
+
+  async function api(method, url, body) {
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    return res.json();
+  }
+
+  // ── Send command ───────────────────────────────────────────────────────────
+  async function sendCommand(deviceId, command) {
+    try {
+      await api('POST', '/api/command', { deviceId, command });
+      showToast('LED ' + command.toUpperCase() + ' command sent!');
+      setTimeout(refresh, 2000);
+    } catch (e) {
+      showToast('Failed to send command', true);
+    }
+  }
+
+  // ── Render devices ─────────────────────────────────────────────────────────
+  function renderDevices(devices) {
+    const el = document.getElementById('devices-container');
+
+    if (!devices.length) {
+      el.innerHTML = `
+        <div class="no-device">
+          <div class="no-device-icon">📡</div>
+          <p>No devices found.<br>Make sure your ESP32 is powered on and connected to WiFi.</p>
+        </div>`;
+      return;
+    }
+
+    el.innerHTML = devices.map(d => `
+      <div class="device-card">
+        <div class="device-top">
+          <div>
+            <div class="device-name">ESP32 Smart Switch</div>
+            <div class="device-id">${d.id}</div>
+          </div>
+          <div class="status-badges">
+            <span class="badge ${d.online ? 'badge-online' : 'badge-offline'}">
+              <span class="dot ${d.online ? 'dot-online' : 'dot-offline'}"></span>
+              ${d.online ? 'ONLINE' : 'OFFLINE'}
+            </span>
+            <span class="badge ${d.status ? 'badge-on' : 'badge-off'}">
+              <span class="dot ${d.status ? 'dot-on' : 'dot-off'}"></span>
+              LED ${d.status ? 'ON' : 'OFF'}
+            </span>
+          </div>
+        </div>
+        <div class="last-seen">Last seen: ${timeSince(d.lastSeen)}</div>
+        <div class="led-controls">
+          <button class="led-btn btn-on" onclick="sendCommand('${d.id}', 'on')">
+            <span class="btn-icon">💡</span>
+            Turn ON
+          </button>
+          <button class="led-btn btn-off" onclick="sendCommand('${d.id}', 'off')">
+            <span class="btn-icon">🌙</span>
+            Turn OFF
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── Render schedules ───────────────────────────────────────────────────────
+  function renderSchedules(schedules) {
+    const el = document.getElementById('schedules-list');
+    if (!schedules.length) {
+      el.innerHTML = '<div class="empty-sched">No schedules yet. Add one above!</div>';
+      return;
+    }
+    el.innerHTML = schedules.map(s => `
+      <div class="sched-item">
+        <div class="sched-time">${pad(s.hour)}:${pad(s.minute)}</div>
+        <div class="sched-info">
+          <div class="sched-label">${s.label}</div>
+          <span class="sched-cmd ${s.command}">${s.command === 'on' ? 'Turn ON' : 'Turn OFF'}</span>
+        </div>
+        <div class="sched-actions">
+          <button class="toggle-btn ${s.enabled ? 'active' : ''}"
+            onclick="toggleSchedule('${s.id}', ${s.enabled})">
+            ${s.enabled ? 'ON' : 'OFF'}
+          </button>
+          <button class="del-btn" onclick="deleteSchedule('${s.id}')">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── Add schedule ───────────────────────────────────────────────────────────
+  async function addSchedule() {
+    const label   = document.getElementById('sched-label').value.trim() || 'Schedule';
+    const timeVal = document.getElementById('sched-time').value;
+    const command = document.getElementById('sched-cmd').value;
+
+    if (!timeVal) { showToast('Please set a time!', true); return; }
+
+    const [hour, minute] = timeVal.split(':').map(Number);
+    await api('POST', '/api/schedules', { label, hour, minute, command });
+
+    document.getElementById('sched-label').value = '';
+    document.getElementById('sched-time').value  = '';
+
+    showToast('Schedule added!');
+    refresh();
+  }
+
+  async function toggleSchedule(id, enabled) {
+    await api('PATCH', `/api/schedules/${id}`, { enabled: !enabled });
+    refresh();
+  }
+
+  async function deleteSchedule(id) {
+    await api('DELETE', `/api/schedules/${id}`);
+    showToast('Schedule removed');
+    refresh();
+  }
+
+  // ── Refresh all data ───────────────────────────────────────────────────────
+  async function refresh() {
+    try {
+      const [devices, schedules] = await Promise.all([
+        api('GET', '/api/devices'),
+        api('GET', '/api/schedules')
+      ]);
+      renderDevices(devices);
+      renderSchedules(schedules);
+    } catch (e) {
+      console.error('Refresh failed', e);
+    }
+  }
+
+  // Auto refresh every 4 seconds
+  setInterval(refresh, 4000);
+  refresh();
+</script>
+</body>
+</html>
