@@ -90,6 +90,16 @@ app.post('/api/command', (req, res) => {
 
   res.json({ ok: true, queued: command });
 });
+// Delete a device
+app.delete('/api/devices/:deviceId', (req, res) => {
+  const id = req.params.deviceId;
+  if (devices[id]) {
+    delete devices[id];
+    res.json({ ok: true });
+  } else {
+    res.status(404).json({ error: 'Device not found' });
+  }
+});
 
 // Get logs for a device
 app.get('/api/logs/:deviceId', (req, res) => {
