@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ESP32 Control Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #0a0c0f;
+    --surface:  #111418;
+    --border:   #1e2530;
+    --accent:   #00ff88;
+    --accent2:  #00aaff;
+    --danger:   #ff3355;
+    --warn:     #ffaa00;
+    --text:     #c8d4e0;
+    --dim:      #4a5568;
+    --mono:     'Share Tech Mono', monospace;
+    --sans:     'Rajdhani', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--dim); }
+
+  .header-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #fff;
+  }
+
+  .clock {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--dim);
+  }
+
+  /* Section */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--accent);
+    opacity: 0.4;
+  }
+
+  /* Device card */
+  .device-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .device-id {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent2);
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+
+  .device-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .badge-online  { background: rgba(0,255,136,0.1); color: var(--accent);  border: 1px solid rgba(0,255,136,0.3); }
+  .badge-offline { background: rgba(255,51,85,0.1);  color: var(--danger);  border: 1px solid rgba(255,51,85,0.3); }
+  .badge-on      { background: rgba(255,170,0,0.1);  color: var(--warn);    border: 1px solid rgba(255,170,0,0.3); }
+  .badge-off     { background: rgba(74,85,104,0.2);  color: var(--dim);     border: 1px solid var(--border); }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .dot-online  { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: pulse 2s infinite; }
+  .dot-offline { background: var(--danger); }
+  .dot-on      { background: var(--warn);   box-shadow: 0 0 6px var(--warn); }
+  .dot-off     { background: var(--dim); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
+
+  .last-seen {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+  }
+
+  /* Control buttons */
+  .controls {
+    display: flex;
+    gap: 10px;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .btn {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 10px 24px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-width: 110px;
+    text-align: center;
+  }
+
+  .btn-on {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-on:hover  { background: #00ffaa; box-shadow: 0 0 20px rgba(0,255,136,0.4); }
+
+  .btn-off {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+  .btn-off:hover { background: rgba(255,51,85,0.1); box-shadow: 0 0 20px rgba(255,51,85,0.2); }
+
+  .btn-add {
+    background: var(--accent2);
+    color: #000;
+    font-size: 12px;
+    padding: 8px 18px;
+  }
+  .btn-add:hover { background: #33bbff; }
+
+  .btn-del {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid rgba(255,51,85,0.3);
+    font-size: 11px;
+    padding: 5px 12px;
+    min-width: unset;
+  }
+  .btn-del:hover { background: rgba(255,51,85,0.1); }
+
+  .btn-toggle {
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid var(--border);
+    font-size: 11px;
+    padding: 5px 12px;
+    min-width: unset;
+  }
+  .btn-toggle.active { color: var(--accent); border-color: rgba(0,255,136,0.3); }
+
+  /* Grid layouts */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 700px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .device-card { grid-template-columns: 1fr; }
+    .controls { flex-direction: row; align-items: flex-start; }
+  }
+
+  /* Schedule form */
+  .sched-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 10px;
+    align-items: end;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 700px) {
+    .sched-form { grid-template-columns: 1fr 1fr; }
+  }
+
+  .form-group label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .form-group input,
+  .form-group select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 3px;
+    outline: none;
+    transition: border 0.15s;
+  }
+  .form-group input:focus,
+  .form-group select:focus { border-color: var(--accent2); }
+  .form-group select option { background: var(--surface); }
+
+  /* Schedule list */
+  .sched-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    margin-bottom: 8px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .sched-time {
+    font-family: var(--mono);
+    font-size: 18px;
+    color: #fff;
+    font-weight: bold;
+    min-width: 60px;
+  }
+
+  .sched-label {
+    font-size: 13px;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .sched-cmd {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 2px;
+  }
+  .sched-cmd.on  { color: var(--accent); background: rgba(0,255,136,0.1); }
+  .sched-cmd.off { color: var(--danger);  background: rgba(255,51,85,0.1); }
+
+  .sched-actions { display: flex; gap: 6px; }
+
+  /* Logs */
+  .log-list {
+    font-family: var(--mono);
+    font-size: 12px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .log-list::-webkit-scrollbar { width: 4px; }
+  .log-list::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .log-item {
+    display: flex;
+    gap: 12px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--dim);
+  }
+  .log-item:last-child { border-bottom: none; }
+  .log-time { color: var(--accent2); min-width: 85px; font-size: 11px; }
+  .log-msg  { color: var(--text); }
+
+  /* Empty states */
+  .empty {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+    text-align: center;
+    padding: 30px;
+    letter-spacing: 1px;
+  }
+
+  /* Spacing */
+  .mb-16 { margin-bottom: 16px; }
+  .mb-24 { margin-bottom: 24px; }
+  .mb-32 { margin-bottom: 32px; }
+
+  /* Notification toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 10px 18px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 999;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="logo"><span>//</span> OSMIUM_DEV</div>
+    <div class="header-title">ESP32 Control Panel</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </header>
+
+  <!-- Devices Section -->
+  <div class="section-label mb-16">DEVICES</div>
+  <div id="devices-container" class="mb-32">
+    <div class="empty">Scanning for devices...</div>
+  </div>
+
+  <!-- Bottom grid -->
+  <div class="grid-2 mb-32">
+
+    <!-- Schedules -->
+    <div>
+      <div class="section-label mb-16">SCHEDULES</div>
+      <div class="card">
+        <div class="sched-form">
+          <div class="form-group">
+            <label>Label</label>
+            <input type="text" id="sched-label" placeholder="Morning ON"/>
+          </div>
+          <div class="form-group">
+            <label>Time (HH:MM)</label>
+            <input type="time" id="sched-time"/>
+          </div>
+          <div class="form-group">
+            <label>Command</label>
+            <select id="sched-cmd">
+              <option value="on">LED ON</option>
+              <option value="off">LED OFF</option>
+            </select>
+          </div>
+          <button class="btn btn-add" onclick="addSchedule()">+ ADD</button>
+        </div>
+        <div id="schedules-list">
+          <div class="empty">No schedules yet</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logs -->
+    <div>
+      <div class="section-label mb-16">ACTIVITY LOG</div>
+      <div class="card">
+        <div id="log-container">
+          <div class="log-list" id="log-list">
+            <div class="empty">No activity yet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Clock ──────────────────────────────────────────────────────────────────
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toTimeString().slice(0, 8);
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // ── API helpers ────────────────────────────────────────────────────────────
+  async function api(method, url, body) {
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    return res.json();
+  }
+
+  // ── Send command ───────────────────────────────────────────────────────────
+  async function sendCommand(deviceId, command) {
+    await api('POST', '/api/command', { deviceId, command });
+    showToast(`CMD: ${command.toUpperCase()} → queued`);
+  }
+
+  // ── Render devices ─────────────────────────────────────────────────────────
+  function timeSince(iso) {
+    if (!iso) return 'never';
+    const sec = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (sec < 5)  return 'just now';
+    if (sec < 60) return `${sec}s ago`;
+    return `${Math.floor(sec/60)}m ago`;
+  }
+
+  function renderDevices(devices) {
+    const el = document.getElementById('devices-container');
+    if (!devices.length) {
+      el.innerHTML = '<div class="empty">No devices seen yet — make sure your ESP32 is running and connected to WiFi</div>';
+      return;
+    }
+    el.innerHTML = devices.map(d => `
+      <div class="card mb-16">
+        <div class="device-card">
+          <div>
+            <div class="device-id">${d.id}</div>
+            <div class="device-name">ESP32 Device</div>
+            <div class="status-row">
+              <span class="badge ${d.online ? 'badge-online' : 'badge-offline'}">
+                <span class="dot ${d.online ? 'dot-online' : 'dot-offline'}"></span>
+                ${d.online ? 'ONLINE' : 'OFFLINE'}
+              </span>
+              <span class="badge ${d.status ? 'badge-on' : 'badge-off'}">
+                <span class="dot ${d.status ? 'dot-on' : 'dot-off'}"></span>
+                LED ${d.status ? 'ON' : 'OFF'}
+              </span>
+              <span class="last-seen">Last seen: ${timeSince(d.lastSeen)}</span>
+            </div>
+          </div>
+          <div class="controls">
+            <button class="btn btn-on"  onclick="sendCommand('${d.id}', 'on')">▶ ON</button>
+            <button class="btn btn-off" onclick="sendCommand('${d.id}', 'off')">■ OFF</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── Render schedules ───────────────────────────────────────────────────────
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function renderSchedules(schedules) {
+    const el = document.getElementById('schedules-list');
+    if (!schedules.length) {
+      el.innerHTML = '<div class="empty">No schedules yet</div>';
+      return;
+    }
+    el.innerHTML = schedules.map(s => `
+      <div class="sched-item">
+        <div class="sched-time">${pad(s.hour)}:${pad(s.minute)}</div>
+        <div class="sched-label">${s.label}</div>
+        <span class="sched-cmd ${s.command}">${s.command.toUpperCase()}</span>
+        <div class="sched-actions">
+          <button class="btn btn-toggle ${s.enabled ? 'active' : ''}"
+            onclick="toggleSchedule('${s.id}', ${s.enabled})">
+            ${s.enabled ? 'ON' : 'OFF'}
+          </button>
+          <button class="btn btn-del" onclick="deleteSchedule('${s.id}')">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── Render logs ────────────────────────────────────────────────────────────
+  function renderLogs(logs) {
+    const el = document.getElementById('log-list');
+    if (!logs.length) {
+      el.innerHTML = '<div class="empty">No activity yet</div>';
+      return;
+    }
+    el.innerHTML = logs.map(l => {
+      const t = new Date(l.time);
+      const ts = t.toTimeString().slice(0,8);
+      return `<div class="log-item">
+        <span class="log-time">${ts}</span>
+        <span class="log-msg">${l.msg}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Poll loop ──────────────────────────────────────────────────────────────
+  let selectedDevice = null;
+
+  async function refresh() {
+    const devices = await api('GET', '/api/devices');
+    renderDevices(devices);
+
+    // show logs for most recently seen device
+    if (devices.length) {
+      const latest = devices.sort((a,b) =>
+        new Date(b.lastSeen||0) - new Date(a.lastSeen||0))[0];
+      selectedDevice = latest.id;
+      const logs = await api('GET', `/api/logs/${latest.id}`);
+      renderLogs(logs);
+    }
+
+    const schedules = await api('GET', '/api/schedules');
+    renderSchedules(schedules);
+  }
+
+  setInterval(refresh, 3000);
+  refresh();
+
+  // ── Schedule actions ───────────────────────────────────────────────────────
+  async function addSchedule() {
+    const label   = document.getElementById('sched-label').value.trim() || 'Schedule';
+    const timeVal = document.getElementById('sched-time').value;
+    const command = document.getElementById('sched-cmd').value;
+
+    if (!timeVal) { showToast('Please set a time'); return; }
+
+    const [hour, minute] = timeVal.split(':').map(Number);
+    await api('POST', '/api/schedules', { label, hour, minute, command });
+    showToast(`Schedule added: ${label}`);
+    document.getElementById('sched-label').value = '';
+    document.getElementById('sched-time').value  = '';
+    refresh();
+  }
+
+  async function toggleSchedule(id, currentlyEnabled) {
+    await api('PATCH', `/api/schedules/${id}`, { enabled: !currentlyEnabled });
+    refresh();
+  }
+
+  async function deleteSchedule(id) {
+    await api('DELETE', `/api/schedules/${id}`);
+    showToast('Schedule removed');
+    refresh();
+  }
+</script>
+</body>
+</html>
