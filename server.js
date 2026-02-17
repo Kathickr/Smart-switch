@@ -1,3 +1,4 @@
+process.env.TZ = 'Asia/Kolkata';
 const express = require('express');
 const cron    = require('node-cron');
 const path    = require('path');
