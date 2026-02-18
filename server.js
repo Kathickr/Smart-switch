@@ -221,4 +221,15 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`ESP32 Control Server running on port ${PORT}`);
+
+  // Keep Render free tier alive — ping self every 5 minutes
+  const https = require('https');
+  const SELF_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+  setInterval(() => {
+    https.get(SELF_URL, (res) => {
+      console.log(`[KEEPALIVE] ping ${res.statusCode}`);
+    }).on('error', () => {
+      console.log('[KEEPALIVE] ping failed — server may be waking up');
+    });
+  }, 5 * 60 * 1000);
 });
