@@ -11,9 +11,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── MQTT Setup ──────────────────────────────────────────────────────────────
 // CHANGE THESE to your HiveMQ credentials
-const MQTT_BROKER = process.env.MQTT_BROKER || 'mqtt://ed1bcddd2b4246cc97f7ad8dc0c7dfbf.s1.eu.hivemq.cloud:8883';
-const MQTT_USER   = process.env.MQTT_USER   || 'Osmium';
-const MQTT_PASS   = process.env.MQTT_PASS   || 'Proto2026';
+const MQTT_BROKER = process.env.MQTT_BROKER || 'mqtt://broker.hivemq.com:1883';
+const MQTT_USER   = process.env.MQTT_USER   || '';
+const MQTT_PASS   = process.env.MQTT_PASS   || '';
 
 const mqttClient = mqtt.connect(MQTT_BROKER, {
   username: MQTT_USER,
@@ -181,6 +181,15 @@ app.post('/api/schedules', (req, res) => {
   };
   schedules.push(schedule);
   startCronJob(schedule);
+  
+  // Push schedule to ALL devices via MQTT
+  Object.keys(devices).forEach(deviceId => {
+    const topic = `osmium/${deviceId}/schedule`;
+    const msg = `${label},${hour},${minute},${command},1`;
+    mqttClient.publish(topic, msg, { qos: 1 });
+    console.log(`[MQTT] Sent schedule to ${deviceId}: ${msg}`);
+  });
+  
   res.json(schedule);
 });
 
