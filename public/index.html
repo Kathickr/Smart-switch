@@ -544,7 +544,6 @@
           <div class="controls">
             <button class="btn btn-on"  onclick="sendCommand('${d.id}', 'on')">▶ ON</button>
             <button class="btn btn-off" onclick="sendCommand('${d.id}', 'off')">■ OFF</button>
-<button class="btn btn-del" onclick="deleteDevice('${d.id}')" style="background:transparent;color:#555;border:1px solid #1e2530;font-size:11px;padding:6px 12px;border-radius:3px;cursor:pointer;letter-spacing:1px;font-family:var(--sans);font-weight:700;min-width:unset;">✕ REMOVE</button>
           </div>
         </div>
       </div>
@@ -642,12 +641,6 @@
     showToast('Schedule removed');
     refresh();
   }
-  async function deleteDevice(deviceId) {
-  if (!confirm('Remove this device from the list?')) return;
-  await api('DELETE', `/api/devices/${deviceId}`);
-  showToast('Device removed');
-  refresh();
-}
 </script>
 </body>
 </html>

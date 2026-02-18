@@ -1,13 +1,49 @@
-process.env.TZ = 'Asia/Kolkata';
 const express = require('express');
 const cron    = require('node-cron');
 const path    = require('path');
+const mqtt    = require('mqtt');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ─── MQTT Setup ──────────────────────────────────────────────────────────────
+// CHANGE THESE to your HiveMQ credentials
+const MQTT_BROKER = process.env.MQTT_BROKER || 'mqtt://broker.hivemq.com:1883';
+const MQTT_USER   = process.env.MQTT_USER   || '';
+const MQTT_PASS   = process.env.MQTT_PASS   || '';
+
+const mqttClient = mqtt.connect(MQTT_BROKER, {
+  username: MQTT_USER,
+  password: MQTT_PASS,
+  clientId: 'osmium-server-' + Math.random().toString(16).slice(2, 8)
+});
+
+mqttClient.on('connect', () => {
+  console.log('[MQTT] Connected to broker');
+  mqttClient.subscribe('osmium/+/status', (err) => {
+    if (!err) console.log('[MQTT] Subscribed to osmium/+/status');
+  });
+});
+
+mqttClient.on('message', (topic, message) => {
+  const parts = topic.split('/');
+  if (parts.length === 3 && parts[0] === 'osmium' && parts[2] === 'status') {
+    const deviceId = parts[1];
+    const status = message.toString() === 'on';
+    const dev = getDevice(deviceId);
+    dev.status = status;
+    dev.lastSeen = new Date().toISOString();
+    addLog(deviceId, `Status update via MQTT: LED ${status ? 'ON' : 'OFF'}`);
+    console.log(`[MQTT] Device ${deviceId} status: ${status ? 'ON' : 'OFF'}`);
+  }
+});
+
+mqttClient.on('error', (err) => {
+  console.error('[MQTT] Connection error:', err.message);
+});
 
 // ─── State ───────────────────────────────────────────────────────────────────
 const devices = {};       // { deviceId: { status, lastSeen, command, logs[] } }
@@ -79,26 +115,21 @@ app.get('/api/devices', (req, res) => {
   res.json(list);
 });
 
-// Send command to device
+// Send command to device (via MQTT)
 app.post('/api/command', (req, res) => {
   const { deviceId, command } = req.body;
   if (!deviceId || !command) return res.status(400).json({ error: 'Missing fields' });
 
-  const dev   = getDevice(deviceId);
-  dev.command = command;
-  addLog(deviceId, `Manual command queued: ${command}`);
-
-  res.json({ ok: true, queued: command });
-});
-// Delete a device
-app.delete('/api/devices/:deviceId', (req, res) => {
-  const id = req.params.deviceId;
-  if (devices[id]) {
-    delete devices[id];
-    res.json({ ok: true });
-  } else {
-    res.status(404).json({ error: 'Device not found' });
-  }
+  const topic = `osmium/${deviceId}/command`;
+  mqttClient.publish(topic, command, { qos: 1 }, (err) => {
+    if (err) {
+      console.error(`[MQTT] Publish error:`, err);
+      return res.status(500).json({ error: 'MQTT publish failed' });
+    }
+    addLog(deviceId, `Command sent via MQTT: ${command}`);
+    console.log(`[MQTT] Published ${command} to ${topic}`);
+    res.json({ ok: true, sent: command, via: 'MQTT' });
+  });
 });
 
 // Get logs for a device
@@ -121,10 +152,11 @@ function startCronJob(schedule) {
 
   const job = cron.schedule(schedule.cronExpr, () => {
     Object.keys(devices).forEach(id => {
-      getDevice(id).command = schedule.command;
-      addLog(id, `Scheduled command: ${schedule.command} (${schedule.label})`);
+      const topic = `osmium/${id}/command`;
+      mqttClient.publish(topic, schedule.command, { qos: 1 });
+      addLog(id, `Scheduled command via MQTT: ${schedule.command} (${schedule.label})`);
     });
-    console.log(`[CRON] ${schedule.label} → ${schedule.command}`);
+    console.log(`[CRON] ${schedule.label} → ${schedule.command} (sent via MQTT)`);
   });
   activeCronJobs[schedule.id] = job;
 }
