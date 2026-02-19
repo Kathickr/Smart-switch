@@ -11,7 +11,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── MQTT Setup ──────────────────────────────────────────────────────────────
 // CHANGE THESE to your HiveMQ credentials
-const MQTT_BROKER = process.env.MQTT_BROKER || 'mqtt://ed1bcddd2b4246cc97f7ad8dc0c7dfbf.s1.eu.hivemq.cloud:8883';
+const MQTT_BROKER = process.env.MQTT_BROKER || 'mqtts://ed1bcddd2b4246cc97f7ad8dc0c7dfbf.s1.eu.hivemq.cloud:8883';
 const MQTT_USER   = process.env.MQTT_USER   || 'Osmium';
 const MQTT_PASS   = process.env.MQTT_PASS   || 'Proto2026';
 
