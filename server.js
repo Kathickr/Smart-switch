@@ -19,6 +19,9 @@ const mqttClient = mqtt.connect(MQTT_BROKER, {
   username: MQTT_USER,
   password: MQTT_PASS,
   clientId: 'osmium-server-' + Math.random().toString(16).slice(2, 8)
+  keepalive: 30,           // ADD THIS
+  clean: true,             // ADD THIS
+  reconnectPeriod: 5000 
 });
 
 mqttClient.on('connect', () => {
